@@ -11,7 +11,9 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain_community.tools.tavily_search import TavilySearchResults
 from tavily import TavilyClient
 
-load_dotenv()
+#load_dotenv()
+#api_key = os.getenv("GOOGLE_API_KEY")
+api_key=st.secrets("GOOGLE_API_KEY")
 
 st.title("Chatbot with PDF and Web Search")
 
@@ -41,7 +43,7 @@ if option == "Chat with PDF":
     uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf")
 
     # LLM Setup
-    llm = GoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", google_api_key=os.getenv("GOOGLE_API_KEY"))
+    llm = GoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", google_api_key=api_key)
     memory = ConversationBufferWindowMemory(k=5)
 
     if "chat_history" not in st.session_state:
@@ -105,12 +107,13 @@ if option == "Chat with PDF":
 # Web Search functionality
 elif option == "Search the Web":
     # Web search setup
-    api_key = os.getenv('TAVILY_API_KEY')
+    #tavily_key = os.getenv('TAVILY_API_KEY')
+    tavily_key = st.secrets("TAVILY_API_KEY")
 
-    if not api_key:
+    if not tavily_key:
         st.error("API key is missing. Please set the API key in the .env file.")
 
-    tavily_client = TavilyClient(api_key=api_key)
+    tavily_client = TavilyClient(api_key=tavily_key)
     tavily_search = TavilySearchResults(max_results=3)
 
     st.title("Search the Web")
