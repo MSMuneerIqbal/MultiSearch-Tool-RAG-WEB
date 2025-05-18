@@ -21,19 +21,13 @@ st.title("Chatbot with PDF and Web Search")
 st.sidebar.title("Choose Functionality")
 option = st.sidebar.radio("Select an option", ["Chat with PDF", "Search the Web"])
 
-# Function to stream response character-by-character
+# Stream formatted response
 def stream_response(response_text):
-    formatted_text = format_response(response_text)
     streamed_text = ""
-    for char in formatted_text:
+    for char in response_text:
         streamed_text += char
         yield streamed_text
         time.sleep(0.01)
-
-# Simple formatting of response
-def format_response(response_text):
-    items = response_text.split(" ")
-    return "\n".join(items)
 
 # PDF Chat functionality
 if option == "Chat with PDF":
@@ -72,17 +66,11 @@ if option == "Chat with PDF":
 
             st.title("Chat with your PDF")
 
-            for chat in st.session_state.chat_history:
-                with st.chat_message("user"):
-                    st.markdown(f"**You:** {chat['question']}")
-                with st.chat_message("assistant"):
-                    st.markdown(f"**Bot:** {chat['response']}")
-
             user_input = st.chat_input("Enter your question:", key="pdf_chat_input")
 
             if user_input:
                 with st.chat_message("user"):
-                    st.markdown(f"**You:** {user_input}")
+                    st.markdown(user_input)
                 with st.spinner("Generating response..."):
                     try:
                         response = store.query(user_input, llm=llm, memory=memory)
@@ -93,13 +81,21 @@ if option == "Chat with PDF":
                                 response_placeholder.markdown(streamed_text)
                     except Exception as e:
                         st.error(f"Error during query: {e}")
+
+            # Optional: display chat history (disabled to prevent duplicates)
+            # for chat in st.session_state.chat_history:
+            #     with st.chat_message("user"):
+            #         st.markdown(chat['question'])
+            #     with st.chat_message("assistant"):
+            #         st.markdown(chat['response'])
+
         else:
             st.info("Please upload a PDF file to begin.")
 
 # Web Search functionality
 elif option == "Search the Web":
     if not tavily_key:
-        st.error("Tavily API key is missing. Please add it to secrets.")
+        st.error("Tavily API key is missing.")
 
     tavily_client = TavilyClient(api_key=tavily_key)
     tavily_search = TavilySearchResults(max_results=3)
@@ -113,45 +109,45 @@ elif option == "Search the Web":
 
     if query:
         with st.chat_message("user"):
-            st.markdown(f"**You:** {query}")
+            st.markdown(query)
 
-        # Handle casual greetings instead of searching
         greetings = ["hi", "hello", "hey", "how are you", "what's up"]
         if query.strip().lower() in greetings:
+            response_text = "Hello! 👋 How can I help you today with your search?"
+            st.session_state.search_history.append({"question": query, "response": response_text})
             with st.chat_message("assistant"):
-                st.markdown("**Bot:** Hello! 👋 How can I assist you today with a web search?")
-            st.session_state.search_history.append({
-                "question": query,
-                "response": "Hello! 👋 How can I assist you today with a web search?"
-            })
+                st.markdown(response_text)
+
         else:
             with st.spinner("Searching the web..."):
                 try:
-                    search_docs = tavily_search.invoke(query)
-                    if search_docs:
-                        response_text = ""
-                        for doc in search_docs:
-                            url = doc.get('url', '#')
-                            content = doc.get('content', 'No Content Available')
-                            response_text += f"**Result:**\n\n**Link:** [Read More]({url})\n\n**Snippet:** {content}\n\n---\n"
+                    results = tavily_search.invoke(query)
+
+                    if results:
+                        # Return only the first result's snippet and title
+                        first_result = results[0]
+                        title = first_result.get("title", "Result")
+                        snippet = first_result.get("content", "")
+                        url = first_result.get("url", "#")
+
+                        response_text = f"**{title}**\n\n{snippet}\n\n[Read more]({url})"
                         st.session_state.search_history.append({"question": query, "response": response_text})
+
                         with st.chat_message("assistant"):
                             response_placeholder = st.empty()
                             for streamed_text in stream_response(response_text):
                                 response_placeholder.markdown(streamed_text)
+
                     else:
-                        st.session_state.search_history.append({"question": query, "response": "No results found."})
+                        response_text = "No results found."
+                        st.session_state.search_history.append({"question": query, "response": response_text})
                         with st.chat_message("assistant"):
-                            st.markdown("**Bot:** No results found.")
+                            st.markdown(response_text)
+
                 except Exception as e:
                     error_msg = f"Error: {e}"
                     st.session_state.search_history.append({"question": query, "response": error_msg})
                     with st.chat_message("assistant"):
-                        st.markdown(f"**Bot:** {error_msg}")
+                        st.markdown(error_msg)
 
-    # Display history
-    for search in st.session_state.search_history:
-        with st.chat_message("user"):
-            st.markdown(f"**You:** {search['question']}")
-        with st.chat_message("assistant"):
-            st.markdown(f"**Bot:** {search['response']}")
+    # Do NOT reprint full chat history to avoid duplicate UI
