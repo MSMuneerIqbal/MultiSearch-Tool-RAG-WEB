@@ -43,7 +43,7 @@ if option == "Chat with PDF":
     uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf")
 
     # LLM Setup
-    llm = GoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key)
+    llm = GoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key)
     memory = ConversationBufferWindowMemory(k=5)
 
     if "chat_history" not in st.session_state:
