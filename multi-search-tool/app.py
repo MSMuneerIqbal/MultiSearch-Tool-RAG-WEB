@@ -11,9 +11,10 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain_community.tools.tavily_search import TavilySearchResults
 from tavily import TavilyClient
 
-#load_dotenv()
-#api_key = os.getenv("GOOGLE_API_KEY")
-api_key=st.secrets["GOOGLE_API_KEY"]
+# Load API keys
+# load_dotenv()
+# api_key = os.getenv("GOOGLE_API_KEY")
+api_key = st.secrets["GOOGLE_API_KEY"]
 
 st.title("Chatbot with PDF and Web Search")
 
@@ -28,13 +29,13 @@ def stream_response(response_text):
     streamed_text = ""
     for char in formatted_text:
         streamed_text += char
-        yield streamed_text  # Stream the progressively formatted response
-        time.sleep(0.01)  # Simulate streaming delay
+        yield streamed_text
+        time.sleep(0.01)
 
 def format_response(response_text):
     """Format response to have each item on a new line, ensuring proper spacing."""
-    items = response_text.split(" ")  # Split based on spaces
-    return "\n".join(items)  # Join with new lines
+    items = response_text.split(" ")
+    return "\n".join(items)
 
 # PDF Chat functionality
 if option == "Chat with PDF":
@@ -52,7 +53,6 @@ if option == "Chat with PDF":
     if uploaded_file is not None:
         st.sidebar.success("Uploaded successfully!")
 
-        # Load PDF using tempfile
         with st.spinner("Loading PDF..."):
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
@@ -77,14 +77,14 @@ if option == "Chat with PDF":
 
             st.title("Chat with your PDF")
 
-            # Display chat history using chat-style UI
+            # Display chat history
             for chat in st.session_state.chat_history:
                 with st.chat_message("user"):
                     st.markdown(f"**You:** {chat['question']}")
                 with st.chat_message("assistant"):
                     st.markdown(f"**Bot:** {chat['response']}")
 
-            user_input = st.chat_input("Enter your question:", key="pdf_chat_input")  # Unique key for PDF input box
+            user_input = st.chat_input("Enter your question:", key="pdf_chat_input")
 
             if user_input:
                 with st.chat_message("user"):
@@ -94,7 +94,6 @@ if option == "Chat with PDF":
                         response = store.query(user_input, llm=llm, memory=memory)
                         st.session_state.chat_history.append({"question": user_input, "response": response})
 
-                        # Stream response with better formatting in real-time
                         with st.chat_message("assistant"):
                             response_placeholder = st.empty()
                             for streamed_text in stream_response(response):
@@ -106,8 +105,6 @@ if option == "Chat with PDF":
 
 # Web Search functionality
 elif option == "Search the Web":
-    # Web search setup
-    #tavily_key = os.getenv('TAVILY_API_KEY')
     tavily_key = st.secrets["TAVILY_API_KEY"]
 
     if not tavily_key:
@@ -118,35 +115,31 @@ elif option == "Search the Web":
 
     st.title("Search the Web")
 
-    # Create a placeholder for chat history for web search
     if "search_history" not in st.session_state:
         st.session_state.search_history = []
 
-    # Web search interaction UI
-    query = st.chat_input("Enter your search query:", key="web_search_input")  # Unique key for web search input box
+    query = st.chat_input("Enter your search query:", key="web_search_input")
 
-    # Move input box below and handle query entry
     if query:
-        # Display the question and response in chat format when query is entered
         with st.chat_message("user"):
             st.markdown(f"**You:** {query}")
 
         with st.spinner("Searching the web..."):
             try:
-                # Perform web search
                 search_docs = tavily_search.invoke(query)
 
-                # Display search results in chat style
                 if search_docs:
                     st.session_state.search_history.append({"question": query, "response": search_docs})
+
                     with st.chat_message("assistant"):
-                        response_placeholder = st.empty()
                         for doc in search_docs:
                             url = doc.get('url', '#')
                             content = doc.get('content', 'No Content Available')
-                            response_text = f"**Result:**\n\n**Link:** [Read More]({url})\n\n**Snippet:** {content}"
+                            response_text = f"**Result:**\n\n**Link:** [Read More]({url})\n\n**Snippet:** {content}\n---"
+                            response_placeholder = st.empty()
                             for streamed_text in stream_response(response_text):
                                 response_placeholder.markdown(streamed_text)
+                            time.sleep(0.5)
                 else:
                     st.session_state.search_history.append({"question": query, "response": "No results found."})
                     with st.chat_message("assistant"):
@@ -156,9 +149,15 @@ elif option == "Search the Web":
                 with st.chat_message("assistant"):
                     st.markdown(f"**Bot:** Error occurred: {e}")
 
-    # Display past search queries and their responses
     for search in st.session_state.search_history:
         with st.chat_message("user"):
             st.markdown(f"**You:** {search['question']}")
+
         with st.chat_message("assistant"):
-            st.markdown(f"**Bot:** {search['response']}")
+            if isinstance(search["response"], list):
+                for doc in search["response"]:
+                    url = doc.get('url', '#')
+                    content = doc.get('content', 'No Content Available')
+                    st.markdown(f"**Result:**\n\n**Link:** [Read More]({url})\n\n**Snippet:** {content}\n---")
+            else:
+                st.markdown(f"**Bot:** {search['response']}")
